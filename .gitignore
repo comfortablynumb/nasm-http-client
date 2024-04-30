@@ -1,5 +1,5 @@
-hello.lst
-hello.o
-hello
+http_client.lst
+http_client.o
+http_client
 /.idea
 /cmake-build-debug

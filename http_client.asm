@@ -63,7 +63,7 @@ section .data
     str_write_calling                   db      " - Sending request (FD: %d)...",NL,0
     str_write_result                    db      " - Write result: %d",NL,0
     str_read_calling                    db      " - Receiving response (FD: %d)...",NL,0
-    str_read_result                     db      " - Read result: %s (%d bytes)",NL,0
+    str_read_result                     db      "%s",0
 
     ; addrinfo_hints struct instance
     
@@ -80,12 +80,12 @@ section .data
     
     ; Request
     
-    request_body_template                  db      "%s %s HTTP/1.1",NL,"Host: %s",NL,NL,0
+    request_body_template                  db      "%s %s HTTP/1.0",NL,"Host: %s",NL,"User-Agent: HttpClient",NL,"Accept: */*",NL,NL,0
     request_default_uri                    db      "/",0
     
     ; Response
     
-    response_buf_len                       equ 100000
+    response_buf_len                       equ 8192
     
     ; HTTP Methods (most common ones supported only :D)
     
@@ -140,7 +140,6 @@ section .data
 section .bss
 
     request_body            resb 2000   ; Arbitrary length
-    response_buf            resb response_buf_len
     fd                      resd 1
     
     ; URL
@@ -158,6 +157,8 @@ section .bss
     ; sockaddr_in struct (required for the "connect" syscall
 
     sockaddr                resq 1
+
+    response_buf            resb response_buf_len
 
 ; ==============================================
 ; Text Section
@@ -642,41 +643,53 @@ section .text
         
         leave
         ret
-    
+
     _read:
         push rbp
         mov rbp, rsp
-        
+
         ; Save rdi
-        
+
         mov r12, rdi
-        
+
         ; Print what we're doing
-        
+
         custom_printf str_read_calling, r12
-        
-        ; Read
-        
-        mov rax, SYSCALL_READ
-        mov rdi, r12                ; FD
-        mov rsi, response_buf
-        mov rdx, response_buf_len
-        
-        syscall
-        
-        ; If error, exit with error code
-        
-        cmp rax, 0
-        jl _error_read
-        
-        ; Print result
-        
-        push rax
-        
-        custom_printf str_read_result, response_buf, rax
-        
-        pop rax
-        
+
+        _read_loop:
+
+            ; Read
+
+            mov rax, SYSCALL_READ
+            mov rdi, r12                        ; FD
+            mov rsi, response_buf               ; Buffer
+            mov rdx, response_buf_len           ; Buffer size
+            sub rdx, 1                          ; Leave space for the null byte
+
+            syscall
+
+            ; If error, exit with error code
+
+            cmp rax, 0
+            jl _error_read
+
+            ; Add null byte at the end of the data
+
+            mov byte [response_buf + rax], 0
+
+            ; Print current buffer contents
+
+            push rax
+
+            custom_printf str_read_result, response_buf, rax
+
+            pop rax
+
+            ; If number of bytes read 0, we've read everything
+
+            cmp rax, 0
+            jne _read_loop
+
         leave
         ret
     

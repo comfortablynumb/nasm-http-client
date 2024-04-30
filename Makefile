@@ -1,4 +1,4 @@
-hello: hello.o
-	gcc -o hello hello.o resolve_hostname.c -no-pie -lc
-hello.o: hello.asm utils.asm
-	nasm -g -F dwarf -f elf64 hello.asm -l hello.lst
+http_client: http_client.o
+	gcc -o http_client http_client.o resolve_hostname.c -no-pie -lc
+http_client.o: http_client.asm utils.asm
+	nasm -g -F dwarf -f elf64 http_client.asm -l http_client.lst
